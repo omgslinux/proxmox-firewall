@@ -43,33 +43,22 @@ function parar()
 function permitir_icmp_byif()
 {
     for ifping in $@;do
-#        if [[ $INPUT == "DROP" ]];then
-	    iptables -A INPUT -i $ifping -p icmp --icmp-type echo-request -j ACCEPT
-#	fi
-
-#	if [[ $OUTPUT == "DROP" ]];then
-	    iptables -A OUTPUT -o $ifping -p icmp --icmp-type echo-reply -j ACCEPT
-#	fi
+	iptables -A INPUT -i $ifping -p icmp --icmp-type echo-request -j ACCEPT
+	iptables -A OUTPUT -o $ifping -p icmp --icmp-type echo-reply -j ACCEPT
     done
 }
 
 function permitir_icmp_byip()
 {
     for ipping in $@;do
-#        if [[ $INPUT == "DROP" ]];then
-	    iptables -A INPUT -s $ipping -p icmp --icmp-type echo-request -j ACCEPT
-#	fi
-
-#	if [[ $OUTPUT == "DROP" ]];then
-	    iptables -A OUTPUT -d $ipping -p icmp --icmp-type echo-reply -j ACCEPT
-#	fi
+	iptables -A INPUT -s $ipping -p icmp --icmp-type echo-request -j ACCEPT
+	iptables -A OUTPUT -d $ipping -p icmp --icmp-type echo-reply -j ACCEPT
     done
 }
 
 function get_net ()
 {
-
-ip a l $1|grep -w inet|awk '{ print $2 }'
+	ip a l $1|grep -w inet|awk '{ print $2 }'
 }
 
 
@@ -82,14 +71,9 @@ function permitir_local()
 	    #iptables -A FORWARD -o $iflocal -j ACCEPT
 	    fi
         done
-#        if [[ $INPUT == "DROP" ]];then
-    	    iptables -A INPUT -i $iflocal -j ACCEPT
-#	fi
-
-#	if [[ $OUTPUT == "DROP" ]];then
-	    iptables -A OUTPUT -o $iflocal -j ACCEPT
-	    permitir_icmp_byif $iflocal
-#	fi
+    	iptables -A INPUT -i $iflocal -j ACCEPT
+	iptables -A OUTPUT -o $iflocal -j ACCEPT
+	permitir_icmp_byif $iflocal
     done
 }
 
@@ -133,8 +117,6 @@ function arrancar()
     # Activamos el forwarding entre interfaces
     echo "1">/proc/sys/net/ipv4/ip_forward
 
-    # Borramos los m<C3><B3>dulos que pudieran estar precargados
-    #for i in $(lsmod|grep ip); do rmmod $i; done
     if [[ $DEBUG ]];then
         set -x
     fi
@@ -181,22 +163,16 @@ function arrancar()
     if [[ $INPUT != "DROP" ]];then
         iptables -A INPUT -i $DEV_PUB -p tcp --dport 21:65535 -j DROP
         iptables -A INPUT -i $DEV_PUB -p udp --dport 21:65535 -j DROP
-	#iptables -A INPUT -p tcp --tcp-flags ALL ACK,RST,SYN,FIN -j DROP
-	#iptables -A INPUT -p tcp --tcp-flags SYN,FIN SYN,FIN -j DROP
-	#iptables -A INPUT -p tcp --tcp-flags SYN,RST SYN,RST -j DROP
-        #iptables -A INPUT -p tcp ! --syn -m state --state NEW -j DROP
-        #iptables -A INPUT -m state --state INVALID -j DROP
     else
         iptables -A INPUT -i $DEV_PUB -m state --state ESTABLISHED -j ACCEPT
     fi
 
     for f in $(ls /etc/network/iptables_extra_*_inc.sh);do
-     . $f
+        . $f
     done
 
     if [[ $DEV_NAT ]];then
         # Para internet
-#	iptables -t nat -A POSTROUTING -o $DEV_NAT -j MASQUERADE
 	iptables -t nat -A POSTROUTING -d 0/0 -j MASQUERADE
     fi
 
@@ -208,5 +184,3 @@ if [[ $1 == "start" ]];then
 else
    parar
 fi
-
-
