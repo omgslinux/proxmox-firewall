@@ -99,18 +99,40 @@ function nat_ip2ip()
 
 function nat_ipport2ipport()
 {
-   # Hace nat desde fuera hacia adentro de un puerto a una ip privada, y sale con la ip de nat
-    _SRC=$1
-    _SRCHOST=$(echo $_SRC|cut -d ":" -f1)
-    _SRCPORT=$(echo $_SRC|cut -d ":" -f2)
-    _DST=$2
-    _DSTHOST=$(echo $_DST|cut -d ":" -f1)
-    _DSTPORT=$(echo $_DST|cut -d ":" -f2)
+    # $1: IP_PUBLICA:PUERTO_INI:PUERTO_FIN (o IP:PUERTO)
+    # $2: IP_PRIVADA:PUERTO_INI:PUERTO_FIN (o IP:PUERTO)
+    # $3: protocolo (udp/tcp)
 
-    iptables -t nat -D PREROUTING --dst $_SRCHOST -p tcp --dport $_SRCPORT -j DNAT --to-destination $_DSTHOST:$_DSTPORT 2>/dev/null
-    iptables -t nat -A PREROUTING --dst $_SRCHOST -p tcp --dport $_SRCPORT -j DNAT --to-destination $_DSTHOST:$_DSTPORT
+    local _SRC=$1
+    local _DST=$2
+    local _PROTO=${3:-tcp}
+
+    # Extraer IPs y Puertos (usando ":" como delimitador único para parsear)
+    local _SRCHOST=$(echo $_SRC | cut -d ":" -f1)
+    local _SRCPORT_RAW=$(echo $_SRC | cut -d ":" -f2-) # Coge todo lo que sigue a la IP
+    local _DSTHOST=$(echo $_DST | cut -d ":" -f1)
+    local _DSTPORT_RAW=$(echo $_DST | cut -d ":" -f2-)
+
+    # Convertir formato para filtros (IP:PUERTO_INI:PUERTO_FIN -> PUERTO_INI:PUERTO_FIN)
+    # Reemplazamos cualquier "-" por ":" para el filtro
+    local _SRCPORT_FILTER=$(echo $_SRCPORT_RAW | tr '-' ':')
+    local _DSTPORT_FILTER=$(echo $_DSTPORT_RAW | tr '-' ':')
+
+    # Convertir formato para TARGET (SNAT/DNAT)
+    # Aquí el puerto debe ir precedido por ":" y el rango separado por "-"
+    local _SRCPORT_TARGET=$(echo $_SRCPORT_RAW | tr ':' '-')
+    local _DSTPORT_TARGET=$(echo $_DSTPORT_RAW | tr ':' '-')
+
+    # --- REGLA DNAT (ENTRADA) ---
+    # Filtro usa ":" | Destino usa "-"
+    iptables -t nat -D PREROUTING --dst $_SRCHOST -p $_PROTO --dport $_SRCPORT_FILTER -j DNAT --to-destination $_DSTHOST:$_DSTPORT_TARGET 2>/dev/null
+    iptables -t nat -A PREROUTING --dst $_SRCHOST -p $_PROTO --dport $_SRCPORT_FILTER -j DNAT --to-destination $_DSTHOST:$_DSTPORT_TARGET
+
+    # --- REGLA SNAT (SALIDA) ---
+    # Filtro usa ":" | Destino usa "-"
+    iptables -t nat -D POSTROUTING --source $_DSTHOST -p $_PROTO --sport $_DSTPORT_FILTER -j SNAT --to-source $_SRCHOST:$_SRCPORT_TARGET 2>/dev/null
+    iptables -t nat -A POSTROUTING --source $_DSTHOST -p $_PROTO --sport $_DSTPORT_FILTER -j SNAT --to-source $_SRCHOST:$_SRCPORT_TARGET
 }
-
 
 function arrancar()
 {
