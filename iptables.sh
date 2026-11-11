@@ -56,11 +56,24 @@ function permitir_icmp_byip()
     done
 }
 
+function get_ip ()
+{
+    local _IPS
+    _IPS=$(ip -4 -o addr show dev "$1" 2>/dev/null | awk '{ sub(/\/.*/,"",$4); print $4 }')
+    local _N=$(echo "$_IPS" | grep -c .)
+
+    if [[ $_N -ne 1 ]]; then
+        echo "get_ip: '$1' tiene $_N IPv4 (se esperaba exactamente 1)" >&2
+        return 1
+    fi
+
+    echo "$_IPS"
+}
+
 function get_net ()
 {
 	ip a l $1|grep -w inet|awk '{ print $2 }'
 }
-
 
 function permitir_local()
 {
@@ -95,6 +108,17 @@ function nat_ip2ip()
     iptables -t nat -A PREROUTING --dst $__PUBIP -j DNAT --to-destination $__PRIVIP
     iptables -t nat -A POSTROUTING --src $__PRIVIP -o $DEV_PUB -j SNAT --to-source $__PUBIP
 
+}
+
+function nat_ifport2ipport()
+{
+    local _IFACE=$(echo $1 | cut -d ":" -f1)
+    local _REST=$(echo $1 | cut -d ":" -f2-)
+    local _SRCIP
+
+    _SRCIP=$(get_ip "$_IFACE") || return 1
+
+    nat_ipport2ipport $_SRCIP:$_REST $2 ${3:-tcp}
 }
 
 function nat_ipport2ipport()
