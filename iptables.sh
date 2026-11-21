@@ -9,14 +9,19 @@ fi
 
 . ${PARAMS_FILE}
 
+function _ipt()
+{
+   iptables $@
+}
+
 function blacklist()
 {
     for ipblack in $@; do
 	if [[ $INPUT != "DROP" ]];then
-	    /sbin/iptables -A INPUT -s $ipblack -j DROP
+	    _ipt -A INPUT -s $ipblack -j DROP
 	fi
 	if [[ $OUTPUT != "DROP" ]];then
-	    /sbin/iptables -A OUTPUT -d $ipblack -j DROP
+	    _ipt -A OUTPUT -d $ipblack -j DROP
 	fi
     done
 }
@@ -24,35 +29,35 @@ function blacklist()
 function whitelist()
 {
     for ipwhite in $@; do
-	/sbin/iptables -A INPUT -s $ipwhite -j ACCEPT
-	/sbin/iptables -A OUTPUT -d $ipwhite -j ACCEPT
+	_ipt -A INPUT -s $ipwhite -j ACCEPT
+	_ipt -A OUTPUT -d $ipwhite -j ACCEPT
 	permitir_icmp_byip $ipwhite
     done
 }
 
 function parar()
 {
-    iptables -t nat -F
-    iptables -t mangle -F
-    iptables -t filter -F
-    iptables -P FORWARD ACCEPT
-    iptables -P INPUT ACCEPT
-    iptables -P OUTPUT ACCEPT
+    _ipt -t nat -F
+    _ipt -t mangle -F
+    _ipt -t filter -F
+    _ipt -P FORWARD ACCEPT
+    _ipt -P INPUT ACCEPT
+    _ipt -P OUTPUT ACCEPT
 }
 
 function permitir_icmp_byif()
 {
     for ifping in $@;do
-	iptables -A INPUT -i $ifping -p icmp --icmp-type echo-request -j ACCEPT
-	iptables -A OUTPUT -o $ifping -p icmp --icmp-type echo-reply -j ACCEPT
+        _ipt -A INPUT -i $ifping -p icmp --icmp-type echo-request -j ACCEPT
+        _ipt -A OUTPUT -o $ifping -p icmp --icmp-type echo-reply -j ACCEPT
     done
 }
 
 function permitir_icmp_byip()
 {
     for ipping in $@;do
-	iptables -A INPUT -s $ipping -p icmp --icmp-type echo-request -j ACCEPT
-	iptables -A OUTPUT -d $ipping -p icmp --icmp-type echo-reply -j ACCEPT
+	_ipt -A INPUT -s $ipping -p icmp --icmp-type echo-request -j ACCEPT
+	_ipt -A OUTPUT -d $ipping -p icmp --icmp-type echo-reply -j ACCEPT
     done
 }
 
@@ -79,24 +84,24 @@ function permitir_local()
 {
     for iflocal in $@;do
         for iflocal2 in $@;do
-            if [[ $iflocal != $iflocal2 && $iflocal != "lo" && $iflocal2 != "lo" ]];then 
-	    iptables -t nat -A POSTROUTING -s $(get_net $iflocal) -d $(get_net $iflocal2) -j ACCEPT
-	    #iptables -A FORWARD -o $iflocal -j ACCEPT
-	    fi
+            if [[ $iflocal != $iflocal2 && $iflocal != "lo" && $iflocal2 != "lo" ]];then
+               _ipt -t nat -A POSTROUTING -s $(get_net $iflocal) -d $(get_net $iflocal2) -j ACCEPT
+	           #iptables -A FORWARD -o $iflocal -j ACCEPT
+    	    fi
         done
-    	iptables -A INPUT -i $iflocal -j ACCEPT
-	iptables -A OUTPUT -o $iflocal -j ACCEPT
-	permitir_icmp_byif $iflocal
+    	_ipt -A INPUT -i $iflocal -j ACCEPT
+    	_ipt -A OUTPUT -o $iflocal -j ACCEPT
+    	permitir_icmp_byif $iflocal
     done
 }
 
 function permitir_puertos()
 {
     for i in $@; do
-	/sbin/iptables -A INPUT -i $DEV_PUB -p tcp --dport $i $IEXTRA -j ACCEPT
-	/sbin/iptables -A INPUT -i $DEV_PUB -p udp --dport $i $IEXTRA -j ACCEPT
-	/sbin/iptables -A OUTPUT -p tcp --dport $i $OEXTRA -j ACCEPT
-	/sbin/iptables -A OUTPUT -p udp --dport $i $OEXTRA -j ACCEPT
+	_ipt -A INPUT -i $DEV_PUB -p tcp --dport $i $IEXTRA -j ACCEPT
+	_ipt -A INPUT -i $DEV_PUB -p udp --dport $i $IEXTRA -j ACCEPT
+	_ipt -A OUTPUT -p tcp --dport $i $OEXTRA -j ACCEPT
+	_ipt -A OUTPUT -p udp --dport $i $OEXTRA -j ACCEPT
     done
 }
 
@@ -105,8 +110,8 @@ function nat_ip2ip()
    # Hace nat desde fuera hacia adentro de todo lo que llega a una ip pública, y sale al exterior con esa misma IP
     __PUBIP=$1
     __PRIVIP=$2
-    iptables -t nat -A PREROUTING --dst $__PUBIP -j DNAT --to-destination $__PRIVIP
-    iptables -t nat -A POSTROUTING --src $__PRIVIP -o $DEV_PUB -j SNAT --to-source $__PUBIP
+   _ipt -t nat -A PREROUTING --dst $__PUBIP -j DNAT --to-destination $__PRIVIP
+   _ipt -t nat -A POSTROUTING --src $__PRIVIP -o $DEV_PUB -j SNAT --to-source $__PUBIP
 
 }
 
@@ -149,13 +154,13 @@ function nat_ipport2ipport()
 
     # --- REGLA DNAT (ENTRADA) ---
     # Filtro usa ":" | Destino usa "-"
-    iptables -t nat -D PREROUTING --dst $_SRCHOST -p $_PROTO --dport $_SRCPORT_FILTER -j DNAT --to-destination $_DSTHOST:$_DSTPORT_TARGET 2>/dev/null
-    iptables -t nat -A PREROUTING --dst $_SRCHOST -p $_PROTO --dport $_SRCPORT_FILTER -j DNAT --to-destination $_DSTHOST:$_DSTPORT_TARGET
+   _ipt -t nat -D PREROUTING --dst $_SRCHOST -p $_PROTO --dport $_SRCPORT_FILTER -j DNAT --to-destination $_DSTHOST:$_DSTPORT_TARGET 2>/dev/null
+   _ipt -t nat -A PREROUTING --dst $_SRCHOST -p $_PROTO --dport $_SRCPORT_FILTER -j DNAT --to-destination $_DSTHOST:$_DSTPORT_TARGET
 
     # --- REGLA SNAT (SALIDA) ---
     # Filtro usa ":" | Destino usa "-"
-    iptables -t nat -D POSTROUTING --source $_DSTHOST -p $_PROTO --sport $_DSTPORT_FILTER -j SNAT --to-source $_SRCHOST:$_SRCPORT_TARGET 2>/dev/null
-    iptables -t nat -A POSTROUTING --source $_DSTHOST -p $_PROTO --sport $_DSTPORT_FILTER -j SNAT --to-source $_SRCHOST:$_SRCPORT_TARGET
+   _ipt -t nat -D POSTROUTING --source $_DSTHOST -p $_PROTO --sport $_DSTPORT_FILTER -j SNAT --to-source $_SRCHOST:$_SRCPORT_TARGET 2>/dev/null
+   _ipt -t nat -A POSTROUTING --source $_DSTHOST -p $_PROTO --sport $_DSTPORT_FILTER -j SNAT --to-source $_SRCHOST:$_SRCPORT_TARGET
 }
 
 function arrancar()
@@ -183,12 +188,12 @@ function arrancar()
     else
         OEXTRA="-m state --state ESTABLISHED"
     fi
-    iptables -t nat -F
-    iptables -t mangle -F
-    iptables -t filter -F
-    iptables -t filter -P INPUT $INPUT
-    iptables -t filter -P FORWARD ACCEPT
-    iptables -t filter -P OUTPUT $OUTPUT
+    _ipt -t nat -F
+    _ipt -t mangle -F
+    _ipt -t filter -F
+    _ipt -t filter -P INPUT $INPUT
+    _ipt -t filter -P FORWARD ACCEPT
+    _ipt -t filter -P OUTPUT $OUTPUT
 
     permitir_local lo $LOCAL_DEVS
 
@@ -201,16 +206,16 @@ function arrancar()
     if [[ $PING_PUB ]];then
         permitir_icmp_byif $DEV_PUB
 	if [[ $OUTPUT == "DROP" ]];then
-	    iptables -A OUTPUT -o $DEV_PUB -j ACCEPT
+	   _ipt -A OUTPUT -o $DEV_PUB -j ACCEPT
 	fi
     fi
 
     # Denegamos el resto
     if [[ $INPUT != "DROP" ]];then
-        iptables -A INPUT -i $DEV_PUB -p tcp --dport 21:65535 -j DROP
-        iptables -A INPUT -i $DEV_PUB -p udp --dport 21:65535 -j DROP
+       _ipt -A INPUT -i $DEV_PUB -p tcp --dport 21:65535 -j DROP
+       _ipt -A INPUT -i $DEV_PUB -p udp --dport 21:65535 -j DROP
     else
-        iptables -A INPUT -i $DEV_PUB -m state --state ESTABLISHED -j ACCEPT
+       _ipt -A INPUT -i $DEV_PUB -m state --state ESTABLISHED -j ACCEPT
     fi
 
     for f in $(ls /etc/network/iptables_extra_*_inc.sh);do
@@ -219,14 +224,14 @@ function arrancar()
 
     if [[ $DEV_NAT ]];then
         # Para internet
-	iptables -t nat -A POSTROUTING -d 0/0 -j MASQUERADE
+        _ipt -t nat -A POSTROUTING -d 0/0 -j MASQUERADE
     fi
 
 
 }
 
 if [[ $1 == "start" ]];then
-   arrancar
+    arrancar
 else
-   parar
+    parar
 fi
