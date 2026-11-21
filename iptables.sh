@@ -1,6 +1,8 @@
 #!/bin/bash
+SCRIPT_DIR="$(dirname "${BASH_SOURCE[0]}")"
+cd "$SCRIPT_DIR"
 
-PARAMS_FILE="/etc/network/iptables_params_inc.sh"
+PARAMS_FILE="iptables_params_inc.sh"
 
 if [[ ! -s $PARAMS_FILE ]];then
     echo "NO EXISTE ${PARAMS_FILE}"
@@ -8,6 +10,7 @@ if [[ ! -s $PARAMS_FILE ]];then
 fi
 
 . ${PARAMS_FILE}
+
 
 function _ipt()
 {
@@ -29,9 +32,9 @@ function blacklist()
 function whitelist()
 {
     for ipwhite in $@; do
-	_ipt -A INPUT -s $ipwhite -j ACCEPT
-	_ipt -A OUTPUT -d $ipwhite -j ACCEPT
-	permitir_icmp_byip $ipwhite
+    	_ipt -A INPUT -s $ipwhite -j ACCEPT
+    	_ipt -A OUTPUT -d $ipwhite -j ACCEPT
+    	permitir_icmp_byip $ipwhite
     done
 }
 
@@ -56,8 +59,8 @@ function permitir_icmp_byif()
 function permitir_icmp_byip()
 {
     for ipping in $@;do
-	_ipt -A INPUT -s $ipping -p icmp --icmp-type echo-request -j ACCEPT
-	_ipt -A OUTPUT -d $ipping -p icmp --icmp-type echo-reply -j ACCEPT
+        _ipt -A INPUT -s $ipping -p icmp --icmp-type echo-request -j ACCEPT
+        _ipt -A OUTPUT -d $ipping -p icmp --icmp-type echo-reply -j ACCEPT
     done
 }
 
@@ -107,11 +110,11 @@ function permitir_puertos()
 
 function nat_ip2ip()
 {
-   # Hace nat desde fuera hacia adentro de todo lo que llega a una ip pública, y sale al exterior con esa misma IP
+    # Hace nat desde fuera hacia adentro de todo lo que llega a una ip pública, y sale al exterior con esa misma IP
     __PUBIP=$1
     __PRIVIP=$2
-   _ipt -t nat -A PREROUTING --dst $__PUBIP -j DNAT --to-destination $__PRIVIP
-   _ipt -t nat -A POSTROUTING --src $__PRIVIP -o $DEV_PUB -j SNAT --to-source $__PUBIP
+    _ipt -t nat -A PREROUTING --dst $__PUBIP -j DNAT --to-destination $__PRIVIP
+    _ipt -t nat -A POSTROUTING --src $__PRIVIP -o $DEV_PUB -j SNAT --to-source $__PUBIP
 
 }
 
@@ -173,18 +176,18 @@ function arrancar()
     fi
 
     if [[ -z $DEV_PUB ]];then
-	DEV_PUB=$(ip r l|grep ^default|awk '{ print $5 }')
+        DEV_PUB=$(ip r l|grep ^default|awk '{ print $5 }')
     fi
 
     # Reglas de enmascaramiento
     if [[ $INPUT != "DROP" ]];then
-	INPUT="ACCEPT"
+        INPUT="ACCEPT"
     else
         IEXTRA="-m state --state NEW,ESTABLISHED"
     fi
 
     if [[ $OUTPUT != "DROP" ]];then
-	OUTPUT="ACCEPT"
+        OUTPUT="ACCEPT"
     else
         OEXTRA="-m state --state ESTABLISHED"
     fi
@@ -206,20 +209,38 @@ function arrancar()
     if [[ $PING_PUB ]];then
         permitir_icmp_byif $DEV_PUB
 	if [[ $OUTPUT == "DROP" ]];then
-	   _ipt -A OUTPUT -o $DEV_PUB -j ACCEPT
+        _ipt -A OUTPUT -o $DEV_PUB -j ACCEPT
 	fi
     fi
 
     # Denegamos el resto
     if [[ $INPUT != "DROP" ]];then
-       _ipt -A INPUT -i $DEV_PUB -p tcp --dport 21:65535 -j DROP
-       _ipt -A INPUT -i $DEV_PUB -p udp --dport 21:65535 -j DROP
+        _ipt -A INPUT -i $DEV_PUB -p tcp --dport 21:65535 -j DROP
+        _ipt -A INPUT -i $DEV_PUB -p udp --dport 21:65535 -j DROP
     else
-       _ipt -A INPUT -i $DEV_PUB -m state --state ESTABLISHED -j ACCEPT
+        _ipt -A INPUT -i $DEV_PUB -m state --state ESTABLISHED -j ACCEPT
     fi
 
-    for f in $(ls /etc/network/iptables_extra_*_inc.sh);do
-        . $f
+    # Procesar archivos extra
+    for f in iptables_extra_*_inc.sh; do
+        [ -f "$f" ] || continue
+
+        # Valores predeterminados
+        source "_defaults_inc.sh"
+
+        # Fichero para procesar
+        source "$f"
+
+        if [ -n "$PUBIP" ] && [ -n "$PRIVIP" ]; then
+            template="template_${TYPE}_inc.sh"
+            if [ -f "$template" ]; then
+                source "$template"
+            else
+                echo "Aviso: no existe $template (TYPE=$TYPE en $f)" >&2
+            fi
+        fi
+
+        unset TYPE PUBIP PRIVIP PORTS template port
     done
 
     if [[ $DEV_NAT ]];then
