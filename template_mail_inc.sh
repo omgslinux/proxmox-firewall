@@ -27,16 +27,16 @@ fi
 if [ -n "$MAIL_SMTPS" ]; then
     nat_ipport2ipport "$PUBIP:465" "$PRIVIP:465" tcp
 fi
-if [ -n "$MAIL_IMAP_143" ]; then
+if [ -n "$MAIL_IMAP" ]; then
     nat_ipport2ipport "$PUBIP:143" "$PRIVIP:143" tcp
 fi
-if [ -n "$MAIL_IMAPS_993" ]; then
+if [ -n "$MAIL_IMAPS" ]; then
     nat_ipport2ipport "$PUBIP:993" "$PRIVIP:993" tcp
 fi
-if [ -n "$MAIL_POP3_110" ]; then
+if [ -n "$MAIL_POP3" ]; then
     nat_ipport2ipport "$PUBIP:110" "$PRIVIP:110" tcp
 fi
-if [ -n "$MAIL_POP3S_995" ]; then
+if [ -n "$MAIL_POP3S" ]; then
     nat_ipport2ipport "$PUBIP:995" "$PRIVIP:995" tcp
 fi
 
