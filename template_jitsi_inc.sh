@@ -8,7 +8,7 @@
 #PRIVIP="<IP privada>"
 
 # Puertos TCP (web y TURN fallback)
-PUBPORTS_TCP="80 443 5349"
+PUBPORTS_TCP="5349"
 for PUBPORT in $PUBPORTS_TCP; do
     nat_ipport2ipport "$PUBIP:$PUBPORT" "$PRIVIP:$PUBPORT" tcp
 done
