@@ -89,6 +89,6 @@ PORTS="8080 8443 9000/udp"
 
 In `PORTS`, an entry without a suffix (or with `/tcp`) is treated as TCP, and an entry with `/udp` is treated as UDP.
 
-Available templates are listed in `template_<TYPE>_inc.sh` (for example `template_www_inc.sh`, `template_mail_inc.sh`, `template_jitsi_inc.sh`, `template_prosody_inc.sh`). Check the corresponding file to see which ports and protocols it opens.
+Available templates are listed in the `_templates/` directory with the pattern `template_<TYPE>_inc.sh` (for example `template_www_inc.sh`, `template_mail_inc.sh`, `template_jitsi_inc.sh`, `template_prosody_inc.sh`). Check the corresponding file to see which ports and protocols it opens.
 
 Note that `PUBIP` and `PRIVIP` must both be defined for a template to be applied. If they are missing, the file is treated as a classic one and no template is loaded. The defaults are defined in `_defaults_inc.sh`, which is loaded before each `iptables_extra_*_inc.sh` file, so you only need to set the values you want to override.

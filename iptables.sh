@@ -232,7 +232,7 @@ function arrancar()
         source "$f"
 
         if [ -n "$PUBIP" ] && [ -n "$PRIVIP" ]; then
-            template="template_${TYPE}_inc.sh"
+            template="_templates/template_${TYPE}_inc.sh"
             if [ -f "$template" ]; then
                 source "$template"
             else
